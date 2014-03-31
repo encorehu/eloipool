@@ -46,8 +46,22 @@ class BitcoinLink(networkserver.SocketHandler):
 			#		dest = ('::ffff:' + dest[0],) + tuple(x for x in dest[1:])
 			#except:
 			#	pass
-			sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-			sock.connect(dest)
+			try:
+				sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+				sock.connect(dest)
+			except socket.gaierror as e:
+				server_error = "Unknown host \"{}\"".format(dest[0])
+				self.logger.error(server_error)
+			except socket.error as e:
+				if e.errno == errno.ECONNREFUSED:
+					server_error = "Connection to {} refused.".format(dest[0])
+				else:
+					server_error = e
+				self.logger.error(e.errno, server_error)
+			except Exception as e:
+				server_error = e
+				self.logger.exception(server_error)
+				self.logger.error("Deferring handling error connecting to server: {}".format(e))
 			ka['sock'] = sock
 			ka['addr'] = dest
 		super().__init__(*a, **ka)
