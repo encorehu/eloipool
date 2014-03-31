@@ -97,7 +97,7 @@ from time import time
 
 def makeCoinbaseTxn(coinbaseValue, useCoinbaser = True, prevBlockHex = None):
 	txn = Txn.new()
-	
+
 	if useCoinbaser and hasattr(config, 'CoinbaserCmd') and config.CoinbaserCmd:
 		coinbased = 0
 		try:
@@ -119,10 +119,10 @@ def makeCoinbaseTxn(coinbaseValue, useCoinbaser = True, prevBlockHex = None):
 			txn.outputs = []
 		else:
 			coinbaseValue -= coinbased
-	
+
 	pkScript = BitcoinScript.toAddress(config.TrackerAddr)
 	txn.addOutput(coinbaseValue, pkScript)
-	
+
 	# TODO
 	# TODO: red flag on dupe coinbase
 	return txn
@@ -225,11 +225,11 @@ def clampTarget(target, DTMode):
 	# ShareTarget is the minimum
 	if target is None or target > config.ShareTarget:
 		target = config.ShareTarget
-	
+
 	# Never target above the network, as we'd lose blocks
 	if target < networkTarget:
 		target = networkTarget
-	
+
 	if DTMode == 2:
 		# Ceil target to a power of two :)
 		truebits = log(target, 2)
@@ -240,7 +240,7 @@ def clampTarget(target, DTMode):
 	elif DTMode == 3:
 		# Round target to multiple of bdiff 1
 		target = bdiff1target / int(round(target2bdiff(target)))
-	
+
 	# Return None for ShareTarget to save memory
 	if target == config.ShareTarget:
 		return None
@@ -269,7 +269,7 @@ def getTarget(username, now, DTMode = None, RequestedTarget = None):
 				getTarget.logger.debug("No shares from %s, resetting to minimum target" % (repr(username),))
 				userStatus[username] = [None, now, 0]
 			return clampTarget(None, DTMode)
-	
+
 	deltaSec = now - lastUpdate
 	target = targetIn or config.ShareTarget
 	target = int(target * config.DynamicTargetGoal * deltaSec / config.DynamicTargetWindow / work)
@@ -357,7 +357,7 @@ def blockSubmissionThread(payload, blkhash, share):
 		servers = list(a for b in MM.TemplateSources for a in b)
 	else:
 		servers = list(config.BlockSubmissions)
-	
+
 	if hasattr(share['merkletree'], 'source_uri'):
 		servers.insert(0, {
 			'access': jsonrpc.ServiceProxy(share['merkletree'].source_uri),
@@ -365,7 +365,7 @@ def blockSubmissionThread(payload, blkhash, share):
 		})
 	elif not servers:
 		servers = list(a for b in MM.TemplateSources for a in b)
-	
+
 	myblock = (blkhash, payload[4:36])
 	payload = b2a_hex(payload).decode('ascii')
 	nexterr = 0
@@ -405,10 +405,10 @@ def blockSubmissionThread(payload, blkhash, share):
 						share['upstreamResult'] = False
 						logShare(share)
 					return
-				
+
 				servers.append(TS)
 				continue
-		
+
 		# At this point, we have a reason back
 		if reason:
 			# FIXME: The returned value could be a list of multiple responses
@@ -437,10 +437,10 @@ def checkData(share):
 		if sharePrevBlock == MM.lastBlock[0]:
 			raise RejectedShare('stale-prevblk')
 		raise RejectedShare('bad-prevblk')
-	
+
 	if data[72:76] != bits:
 		raise RejectedShare('bad-diffbits')
-	
+
 	# Note that we should accept miners reducing version to 1 if they don't understand 2 yet
 	# FIXME: When the supermajority is upgraded to version 2, stop accepting 1!
 	if data[1:4] != b'\0\0\0' or data[0] > 2:
@@ -448,14 +448,14 @@ def checkData(share):
 
 def buildStratumData(share, merkleroot):
 	(prevBlock, height, bits) = MM.currentBlock
-	
+
 	data = b'\x02\0\0\0'
 	data += prevBlock
 	data += merkleroot
 	data += share['ntime'][::-1]
 	data += bits
 	data += share['nonce'][::-1]
-	
+
 	share['data'] = data
 	return data
 
@@ -471,17 +471,17 @@ def IsJobValid(wli, wluser = None):
 
 def checkShare(share):
 	shareTime = share['time'] = time()
-	
+
 	username = share['username']
 	if 'data' in share:
 		# getwork/GBT
 		checkData(share)
 		data = share['data']
-		
+
 		if username not in workLog:
 			raise RejectedShare('unknown-user')
 		MWL = workLog[username]
-		
+
 		shareMerkleRoot = data[36:68]
 		if 'blkdata' in share:
 			pl = share['blkdata']
@@ -507,14 +507,14 @@ def checkShare(share):
 		mode = 'MC'
 		moden = 1
 		othertxndata = b''
-	
+
 	if wli not in MWL:
 		raise RejectedShare('unknown-work')
 	(wld, issueT) = MWL[wli]
 	share[mode] = wld
-	
+
 	share['issuetime'] = issueT
-	
+
 	(workMerkleTree, workCoinbase) = wld[1:3]
 	share['merkletree'] = workMerkleTree
 	if 'jobid' in share:
@@ -524,28 +524,28 @@ def checkShare(share):
 		cbtxn.assemble()
 		data = buildStratumData(share, workMerkleTree.withFirst(cbtxn))
 		shareMerkleRoot = data[36:68]
-	
+
 	if data in DupeShareHACK:
 		raise RejectedShare('duplicate')
 	DupeShareHACK[data] = None
-	
+
 	blkhash = dblsha(data)
 	if blkhash[28:] != b'\0\0\0\0':
 		raise RejectedShare('H-not-zero')
 	blkhashn = LEhash2int(blkhash)
-	
+
 	global networkTarget
 	logfunc = getattr(checkShare.logger, 'info' if blkhashn <= networkTarget else 'debug')
 	logfunc('BLKHASH: %64x' % (blkhashn,))
 	logfunc(' TARGET: %64x' % (networkTarget,))
-	
+
 	# NOTE: this isn't actually needed for MC mode, but we're abusing it for a trivial share check...
 	txlist = workMerkleTree.data
 	txlist = [deepcopy(txlist[0]),] + txlist[1:]
 	cbtxn = txlist[0]
 	cbtxn.setCoinbase(coinbase or workCoinbase)
 	cbtxn.assemble()
-	
+
 	if blkhashn <= networkTarget:
 		logfunc("Submitting upstream")
 		RBDs.append( deepcopy( (data, txlist, share.get('blkdata', None), workMerkleTree, share, wld) ) )
@@ -567,7 +567,7 @@ def checkShare(share):
 			share['upstreamRejectReason'] = None
 			share['upstreamResult'] = True
 		MM.updateBlock(blkhash)
-	
+
 	# Gotwork hack...
 	if gotwork and blkhashn <= config.GotWorkTarget:
 		try:
@@ -587,21 +587,21 @@ def checkShare(share):
 			thr.start()
 		except:
 			checkShare.logger.warning('Failed to build gotwork request')
-	
+
 	if 'target' in share:
 		workTarget = share['target']
 	elif len(wld) > 6:
 		workTarget = wld[6]
 	else:
 		workTarget = None
-	
+
 	if workTarget is None:
 		workTarget = config.ShareTarget
 	if blkhashn > workTarget:
 		raise RejectedShare('high-hash')
 	share['target'] = workTarget
 	share['_targethex'] = '%064x' % (workTarget,)
-	
+
 	shareTimestamp = unpack('<L', data[68:72])[0]
 	if shareTime < issueT - 120:
 		raise RejectedShare('stale-work')
@@ -609,7 +609,7 @@ def checkShare(share):
 		raise RejectedShare('time-too-old')
 	if shareTimestamp > shareTime + 7200:
 		raise RejectedShare('time-too-new')
-	
+
 	if config.DynamicTargetting and username in userStatus:
 		# NOTE: userStatus[username] only doesn't exist across restarts
 		status = userStatus[username]
@@ -618,24 +618,24 @@ def checkShare(share):
 			userStatus[username][2] += 1
 		else:
 			userStatus[username][2] += float(target) / workTarget
-	
+
 	if moden:
 		cbpre = workCoinbase
 		cbpreLen = len(cbpre)
 		if coinbase[:cbpreLen] != cbpre:
 			raise RejectedShare('bad-cb-prefix')
-		
+
 		# Filter out known "I support" flags, to prevent exploits
 		for ff in (b'/P2SH/', b'NOP2SH', b'p2sh/CHV', b'p2sh/NOCHV'):
 			if coinbase.find(ff) > max(-1, cbpreLen - len(ff)):
 				raise RejectedShare('bad-cb-flag')
-		
+
 		if len(coinbase) > 100:
 			raise RejectedShare('bad-cb-length')
-		
+
 		if shareMerkleRoot != workMerkleTree.withFirst(cbtxn):
 			raise RejectedShare('bad-txnmrklroot')
-		
+
 		if len(othertxndata):
 			allowed = assembleBlock(data, txlist)[80:]
 			if allowed != share['blkdata']:
@@ -654,7 +654,7 @@ def checkAuthentication(username, password):
 	# HTTPServer uses bytes, and StratumServer uses str
 	if hasattr(username, 'decode'): username = username.decode('utf8')
 	if hasattr(password, 'decode'): password = password.decode('utf8')
-	
+
 	for i in authenticators:
 		if i.checkAuthentication(username, password):
 			return True
@@ -703,12 +703,12 @@ if getattr(config, 'SaveStateFilename', None) is None:
 
 def stopServers():
 	logger = logging.getLogger('stopServers')
-	
+
 	if hasattr(stopServers, 'already'):
 		logger.debug('Already tried to stop servers before')
 		return
 	stopServers.already = True
-	
+
 	logger.info('Stopping servers...')
 	global bcnode, server
 	servers = (bcnode, server, stratumsrv)
@@ -732,7 +732,7 @@ def stopServers():
 			logger.error('Servers taking too long to stop (%s), giving up' % (', '.join(sl)))
 			break
 		sleep(0.01)
-	
+
 	for s in servers:
 		for fd in s._fd.keys():
 			os.close(fd)
@@ -744,7 +744,7 @@ def stopLoggers():
 
 def saveState(SAVE_STATE_FILENAME, t = None):
 	logger = logging.getLogger('saveState')
-	
+
 	# Then, save data needed to resume work
 	logger.info('Saving work state to \'%s\'...' % (SAVE_STATE_FILENAME,))
 	i = 0
@@ -787,9 +787,9 @@ def restart():
 def restoreState(SAVE_STATE_FILENAME):
 	if not os.path.exists(SAVE_STATE_FILENAME):
 		return
-	
+
 	global workLog, DupeShareHACK
-	
+
 	logger = logging.getLogger('restoreState')
 	s = os.stat(SAVE_STATE_FILENAME)
 	logger.info('Restoring saved state from \'%s\' (%d bytes)' % (SAVE_STATE_FILENAME, s.st_size))
@@ -801,7 +801,7 @@ def restoreState(SAVE_STATE_FILENAME):
 					# Future formats, not supported here
 					ver = t[3]
 					# TODO
-				
+
 				# Old format, from 2012-02-02 to 2012-02-03
 				workLog = t[0]
 				DupeShareHACK = t[1]
@@ -814,7 +814,7 @@ def restoreState(SAVE_STATE_FILENAME):
 				else:
 					# Current format, from 2012-02-03 onward
 					DupeShareHACK = pickle.load(f)
-				
+
 				if t + 120 >= time():
 					workLog = pickle.load(f)
 				else:
@@ -868,7 +868,7 @@ if __name__ == "__main__":
 			else:
 				i = parameters
 			i['type'] = name
-		
+
 		name = i['type']
 		parameters = i
 		try:
@@ -878,10 +878,10 @@ if __name__ == "__main__":
 			loggersShare.append(lo)
 		except:
 			logging.getLogger('sharelogging').error("Error setting up share logger %s: %s", name,  sys.exc_info())
-	
+
 	if not hasattr(config, 'Authentication'):
 		config.Authentication = ({'module': 'allowall'},)
-	
+
 	for i in config.Authentication:
 		name = i['module']
 		parameters = i
@@ -892,16 +892,16 @@ if __name__ == "__main__":
 			authenticators.append(lo)
 		except:
 			logging.getLogger('authentication').error("Error setting up authentication module %s: %s", name, sys.exc_info())
-	
+
 	LSbc = []
 	if not hasattr(config, 'BitcoinNodeAddresses'):
 		config.BitcoinNodeAddresses = ()
 	for a in config.BitcoinNodeAddresses:
 		LSbc.append(NetworkListener(bcnode, a))
-	
+
 	if hasattr(config, 'UpstreamBitcoindNode') and config.UpstreamBitcoindNode:
 		BitcoinLink(bcnode, dest=config.UpstreamBitcoindNode)
-	
+
 	# Make GBT optional
 	if hasattr(config, 'GBTMining'):
 		if config.GBTMining == True:
@@ -909,7 +909,7 @@ if __name__ == "__main__":
 
 	import jsonrpc_getwork
 	import jsonrpc_setworkaux
-	
+
 	server = JSONRPCServer()
 	server.tls = threading.local()
 	server.tls.wantClear = False
@@ -932,11 +932,11 @@ if __name__ == "__main__":
 	server.RaiseRedFlags = RaiseRedFlags
 	server.ShareTarget = config.ShareTarget
 	server.checkAuthentication = checkAuthentication
-	
+
 	if hasattr(config, 'TrustedForwarders'):
 		server.TrustedForwarders = config.TrustedForwarders
 	server.ServerName = config.ServerName
-	
+
 	stratumsrv = StratumServer()
 	stratumsrv.getStratumJob = getStratumJob
 	stratumsrv.getExistingStratumJob = getExistingStratumJob
@@ -949,21 +949,21 @@ if __name__ == "__main__":
 		config.StratumAddresses = ()
 	for a in config.StratumAddresses:
 		NetworkListener(stratumsrv, a)
-	
+
 	MM.start()
-	
+
 	restoreState(config.SaveStateFilename)
-	
+
 	prune_thr = threading.Thread(target=WorkLogPruner, args=(workLog,))
 	prune_thr.daemon = True
 	prune_thr.start()
-	
+
 	bcnode_thr = threading.Thread(target=bcnode.serve_forever)
 	bcnode_thr.daemon = True
 	bcnode_thr.start()
-	
+
 	stratum_thr = threading.Thread(target=stratumsrv.serve_forever)
 	stratum_thr.daemon = True
 	stratum_thr.start()
-	
+
 	server.serve_forever()

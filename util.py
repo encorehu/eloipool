@@ -46,15 +46,15 @@ def target2bdiff(target):
 
 class shareLogFormatter:
 	_re_x = re.compile(r'^\s*(\w+)\s*(?:\(\s*(.*?)\s*\))?\s*$')
-	
+
 	def __init__(self, *a, **ka):
 		self._p = self.parse(*a, **ka)
-	
+
 	# NOTE: This only works for psf='%s' (default)
 	def formatShare(self, *a, **ka):
 		(stmt, params) = self.applyToShare(*a, **ka)
 		return stmt % params
-	
+
 	def applyToShare(self, share):
 		(stmt, stmtf) = self._p
 		params = []
@@ -62,12 +62,12 @@ class shareLogFormatter:
 			params.append(f(share))
 		params = tuple(params)
 		return (stmt, params)
-	
+
 	@classmethod
 	def parse(self, stmt, psf = '%s'):
 		fmt = string.Formatter()
 		pstmt = tuple(fmt.parse(stmt))
-		
+
 		stmt = ''
 		fmt = []
 		for (lit, field, fmtspec, conv) in pstmt:
@@ -79,7 +79,7 @@ class shareLogFormatter:
 			stmt += psf
 		fmt = tuple(fmt)
 		return (stmt, fmt)
-	
+
 	@classmethod
 	def get_field(self, field):
 		m = self._re_x.match(field)
@@ -97,19 +97,19 @@ class shareLogFormatter:
 				f = eval(fn)
 				return self._get_field_auto(f, sf)
 		raise ValueError('Failed to parse field: %s' % (field,))
-	
+
 	@classmethod
 	def _get_field_auto(self, f, subfunc):
 		return lambda s: f(subfunc(s))
-	
+
 	@classmethod
 	def get_field_not(self, subfunc):
 		return lambda s: not subfunc(s)
-	
+
 	@classmethod
 	def get_field_Q(self, subfunc):
 		return lambda s: subfunc(s) or '?'
-	
+
 	@classmethod
 	def get_field_dash(self, subfunc):
 		return lambda s: subfunc(s) or '-'
@@ -161,12 +161,12 @@ class ScheduleDict:
 	def __init__(self):
 		self._dict = {}
 		self._build_heap()
-	
+
 	def _build_heap(self):
 		newheap = list((v[0], k, v[1]) for k, v in self._dict.items())
 		heapq.heapify(newheap)
 		self._heap = newheap
-	
+
 	def nextTime(self):
 		while True:
 			(t, k, o) = self._heap[0]
@@ -174,7 +174,7 @@ class ScheduleDict:
 				break
 			heapq.heappop(self._heap)
 		return t
-	
+
 	def shift(self):
 		while True:
 			(t, k, o) = heapq.heappop(self._heap)
@@ -182,7 +182,7 @@ class ScheduleDict:
 				break
 		del self._dict[k]
 		return o
-	
+
 	def __setitem__(self, o, t):
 		k = id(o)
 		self._dict[k] = (t, o)
@@ -190,15 +190,15 @@ class ScheduleDict:
 			self._build_heap()
 		else:
 			heapq.heappush(self._heap, (t, k, o))
-	
+
 	def __getitem__(self, o):
 		return self._dict[id(o)][0]
-	
+
 	def __delitem__(self, o):
 		del self._dict[id(o)]
 		if len(self._dict) < 2:
 			self._build_heap()
-	
+
 	def __len__(self):
 		return len(self._dict)
 

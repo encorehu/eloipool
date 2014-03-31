@@ -42,7 +42,7 @@ StratumCodes = {
 
 class StratumHandler(networkserver.SocketHandler):
 	logger = logging.getLogger('StratumHandler')
-	
+
 	def __init__(self, *a, **ka):
 		super().__init__(*a, **ka)
 		self.remoteHost = self.addr[0]
@@ -52,17 +52,17 @@ class StratumHandler(networkserver.SocketHandler):
 		self.lastBDiff = None
 		self.JobTargets = collections.OrderedDict()
 		self.UA = None
-	
+
 	def sendReply(self, ob):
 		return self.push(json.dumps(ob).encode('ascii') + b"\n")
-	
+
 	def found_terminator(self):
 		inbuf = b"".join(self.incoming).decode('ascii')
 		self.incoming = []
-		
+
 		if not inbuf:
 			return
-		
+
 		try:
 			rpc = json.loads(inbuf)
 		except ValueError:
@@ -86,7 +86,7 @@ class StratumHandler(networkserver.SocketHandler):
 				'result': None,
 			})
 			return
-		
+
 		try:
 			rv = getattr(self, funcname)(*rpc['params'])
 		except StratumError as e:
@@ -106,13 +106,13 @@ class StratumHandler(networkserver.SocketHandler):
 			if not hasattr(e, 'StratumQuiet'):
 				self.logger.debug(fexc)
 			return
-		
+
 		self.sendReply({
 			'error': None,
 			'id': rpc['id'],
 			'result': rv,
 		})
-	
+
 	def sendJob(self):
 		target = self.server.defaultTarget
 		if len(self.Usernames) == 1:
@@ -133,17 +133,17 @@ class StratumHandler(networkserver.SocketHandler):
 		if len(self.JobTargets) > 4:
 			self.JobTargets.popitem(False)
 		self.JobTargets[self.server.JobId] = target
-	
+
 	def requestStratumUA(self):
 		self.sendReply({
 			'id': 7,
 			'method': 'client.get_version',
 			'params': (),
 		})
-	
+
 	def _stratumreply_7(self, rpc):
 		self.UA = rpc.get('result') or rpc
-	
+
 	def _stratum_mining_subscribe(self, *a):
 		xid = struct.pack('@P', id(self))
 		self.extranonce1 = xid
@@ -158,14 +158,14 @@ class StratumHandler(networkserver.SocketHandler):
 			xid,
 			4,
 		]
-	
+
 	def close(self):
 		try:
 			del self.server._Clients[id(self)]
 		except:
 			pass
 		super().close()
-	
+
 	def _stratum_mining_submit(self, username, jobid, extranonce2, ntime, nonce):
 		if username not in self.Usernames:
 			raise StratumError(24, 'unauthorized-user', False)
@@ -189,7 +189,7 @@ class StratumHandler(networkserver.SocketHandler):
 			errno = StratumCodes.get(rej, 20)
 			raise StratumError(errno, rej, False)
 		return True
-	
+
 	def _stratum_mining_authorize(self, username, password = None):
 		try:
 			valid = self.server.checkAuthentication(username, password)
@@ -199,7 +199,7 @@ class StratumHandler(networkserver.SocketHandler):
 			self.Usernames[username] = None
 			self.changeTask(self.requestStratumUA, 0)
 		return valid
-	
+
 	def _stratum_mining_xget_transactions(self, jobid):
 		try:
 			(MC, wld) = self.server.getExistingStratumJob(jobid)
@@ -211,37 +211,37 @@ class StratumHandler(networkserver.SocketHandler):
 
 class StratumServer(networkserver.AsyncSocketServer):
 	logger = logging.getLogger('StratumServer')
-	
+
 	waker = True
 	schMT = True
-	
+
 	extranonce1null = struct.pack('@P', 0)
-	
+
 	def __init__(self, *a, **ka):
 		ka.setdefault('RequestHandlerClass', StratumHandler)
 		super().__init__(*a, **ka)
-		
+
 		self._Clients = {}
 		self._JobId = 0
 		self.JobId = '%d' % (time(),)
 		self.WakeRequest = None
 		self.UpdateTask = None
-	
+
 	def checkAuthentication(self, username, password):
 		return True
-	
+
 	def updateJob(self, wantClear = False):
 		if self.UpdateTask:
 			try:
 				self.rmSchedule(self.UpdateTask)
 			except:
 				pass
-		
+
 		self._JobId += 1
 		JobId = '%d %d' % (time(), self._JobId)
 		(MC, wld) = self.getStratumJob(JobId, wantClear=wantClear)
 		(height, merkleTree, cb, prevBlock, bits) = MC[:5]
-		
+
 		if len(cb) > 96 - len(self.extranonce1null) - 4:
 			if not self.rejecting:
 				self.logger.warning('Coinbase too big for stratum: disabling')
@@ -252,15 +252,15 @@ class StratumServer(networkserver.AsyncSocketServer):
 		elif self.rejecting:
 			self.rejecting = False
 			self.logger.info('Coinbase small enough for stratum again: reenabling')
-		
+
 		txn = deepcopy(merkleTree.data[0])
 		cb += self.extranonce1null + b'Eloi'
 		txn.setCoinbase(cb)
 		txn.assemble()
 		pos = txn.data.index(cb) + len(cb)
-		
+
 		steps = list(b2a_hex(h).decode('ascii') for h in merkleTree._steps)
-		
+
 		self.JobBytes = json.dumps({
 			'id': None,
 			'method': 'mining.notify',
@@ -277,16 +277,16 @@ class StratumServer(networkserver.AsyncSocketServer):
 			],
 		}).encode('ascii') + b"\n"
 		self.JobId = JobId
-		
+
 		self.WakeRequest = 1
 		self.wakeup()
-		
+
 		self.UpdateTask = self.schedule(self.updateJob, time() + 55)
-	
+
 	def pre_schedule(self):
 		if self.WakeRequest:
 			self._wakeNodes()
-	
+
 	def _wakeNodes(self):
 		self.WakeRequest = None
 		C = self._Clients
@@ -295,9 +295,9 @@ class StratumServer(networkserver.AsyncSocketServer):
 			return
 		OC = len(C)
 		self.logger.debug("%d clients to wake up..." % (OC,))
-		
+
 		now = time()
-		
+
 		for ic in list(C.values()):
 			try:
 				ic.sendJob()
@@ -307,8 +307,8 @@ class StratumServer(networkserver.AsyncSocketServer):
 			except:
 				OC -= 1
 				self.logger.debug('Error sending new job:\n' + traceback.format_exc())
-		
+
 		self.logger.debug('New job sent to %d clients in %.3f seconds' % (OC, time() - now))
-	
+
 	def getTarget(*a, **ka):
 		return None

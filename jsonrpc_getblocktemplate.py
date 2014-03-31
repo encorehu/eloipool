@@ -27,7 +27,7 @@ class _getblocktemplate:
 		ShareTargetHex = '%064x' % (server.ShareTarget,)
 		JSONRPCHandler.getblocktemplate_rv_template['target'] = ShareTargetHex
 		if hasattr(server, 'XStratumHeader'):
-			JSONRPCHandler.XStratumHeader = server.XStratumHeader	
+			JSONRPCHandler.XStratumHeader = server.XStratumHeader
 
 	getblocktemplate_rv_template = {
 		'longpoll': '/LP',
@@ -40,7 +40,7 @@ class _getblocktemplate:
 		'expires': 120,
 		'version': 2,
 		'submitold': True,
-		
+
 		# Bitcoin-specific:
 		'sigoplimit': 20000,
 		'sizelimit': 1000000,
@@ -48,16 +48,16 @@ class _getblocktemplate:
 	def doJSON_getblocktemplate(self, params):
 		if 'mode' in params and params['mode'] != 'template':
 			raise AttributeError('getblocktemplate mode "%s" not supported' % (params['mode'],))
-		
+
 		if 'longpollid' in params:
 			self.processLP(params['longpollid'])
-		
+
 		RequestedTarget = None
 		try:
 			RequestedTarget = int(params['target'], 16)
 		except:
 			pass
-		
+
 		if hasattr(self, 'XStratumHeader') and 'brokenstratum' not in self.quirks:
 			self._JSONHeaders['X-Stratum'] = self.XStratumHeader
 
@@ -92,7 +92,7 @@ class _getblocktemplate:
 		txno['data'] = b2a_hex(t.data).decode('ascii')
 		rv['coinbasetxn'] = txno
 		return rv
-	
+
 	def doJSON_submitblock(self, data, params = _NoParams):
 		data = bytes.fromhex(data)
 		share = {

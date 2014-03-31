@@ -30,41 +30,41 @@ EPOLL_WRITE = select.POLLOUT
 class SocketHandler:
 	ac_in_buffer_size = 4096
 	ac_out_buffer_size = 4096
-	
+
 	def handle_close(self):
 		self.wbuf = None
 		self.close()
-	
+
 	def handle_error(self):
 		self.logger.debug(traceback.format_exc())
 		self.handle_close()
-	
+
 	# NOTE: This function checks for socket-closed condition and calls handle_close
 	recv = asynchat.async_chat.recv
-	
+
 	def handle_read(self):
 		try:
 			data = self.recv (self.ac_in_buffer_size)
 		except socket.error as why:
 			self.handle_error()
 			return
-		
+
 		if self.closeme:
 			# All input is ignored from sockets we have "closed"
 			return
-		
+
 		if isinstance(data, str) and self.use_encoding:
 			data = bytes(str, self.encoding)
 		self.ac_in_buffer = self.ac_in_buffer + data
-		
+
 		self.server.lastReadbuf = self.ac_in_buffer
-		
+
 		self.handle_readbuf()
-	
+
 	collect_incoming_data = asynchat.async_chat._collect_incoming_data
 	get_terminator = asynchat.async_chat.get_terminator
 	set_terminator = asynchat.async_chat.set_terminator
-	
+
 	def handle_readbuf(self):
 		while self.ac_in_buffer:
 			lb = len(self.ac_in_buffer)
@@ -126,7 +126,7 @@ class SocketHandler:
 						# no prefix, collect it all
 						self.collect_incoming_data (self.ac_in_buffer)
 						self.ac_in_buffer = b''
-	
+
 	def push(self, data):
 		if not len(self.wbuf):
 			# Try to send as much as we can immediately
@@ -160,10 +160,10 @@ class SocketHandler:
 				self.socket.shutdown(2)
 				return
 		self.server.register_socket_m(self.fd, EPOLL_READ | EPOLL_WRITE)
-	
+
 	def handle_timeout(self):
 		self.close()
-	
+
 	def handle_write(self):
 		if self.wbuf is None:
 			# Socket was just closed by remote peer
@@ -177,7 +177,7 @@ class SocketHandler:
 			self.wbuftime = 0
 			self.wbufhigh = 0
 			self.server.register_socket_m(self.fd, EPOLL_READ)
-	
+
 	def close(self):
 		if self.wbuf:
 			self.closeme = True
@@ -193,18 +193,18 @@ class SocketHandler:
 		self.changeTask(None)
 		self.socket.close()
 		self.fd = -1
-	
+
 	def boot(self):
 		self.close()
 		self.ac_in_buffer = b''
-	
+
 	def changeTask(self, f, t = None):
 		tryErr(self.server.rmSchedule, self._Task, IgnoredExceptions=KeyError)
 		if f:
 			self._Task = self.server.schedule(f, t, errHandler=self)
 		else:
 			self._Task = None
-	
+
 	def __init__(self, server, sock, addr):
 		self.ac_in_buffer = b''
 		self.incoming = []
@@ -221,7 +221,7 @@ class SocketHandler:
 		server.register_socket(self.fd, self)
 		server.connections[id(self)] = self
 		self.changeTask(self.handle_timeout, time() + 15)
-	
+
 	@classmethod
 	def _register(cls, scls):
 		for a in dir(scls):
@@ -235,13 +235,13 @@ class SocketHandler:
 
 class NetworkListener:
 	logger = logging.getLogger('SocketListener')
-	
+
 	def __init__(self, server, server_address, address_family = socket.AF_INET):
 		self.server = server
 		self.server_address = server_address
 		self.address_family = address_family
 		tryErr(self.setup_socket, server_address, Logger=self.logger, ErrorMsg=server_address)
-	
+
 	def _makebind_py(self, server_address):
 		sock = socket.socket(self.address_family, socket.SOCK_STREAM)
 		sock.setblocking(0)
@@ -251,11 +251,11 @@ class NetworkListener:
 			pass
 		sock.bind(server_address)
 		return sock
-	
+
 	def _makebind_su(self, server_address):
 		if self.address_family != socket.AF_INET:
 			raise NotImplementedError
-		
+
 		from bindservice import bindservice
 		(node, service) = server_address
 		if not node: node = ''
@@ -264,7 +264,7 @@ class NetworkListener:
 		sock = socket.fromfd(fd, socket.AF_INET, socket.SOCK_STREAM)
 		sock.setblocking(0)
 		return sock
-	
+
 	def _makebind(self, *a, **ka):
 		try:
 			return self._makebind_py(*a, **ka)
@@ -274,13 +274,13 @@ class NetworkListener:
 			except:
 				pass
 			raise
-	
+
 	def setup_socket(self, server_address):
 		sock = self._makebind(server_address)
 		sock.listen(100)
 		self.server.register_socket(sock.fileno(), self)
 		self.socket = sock
-	
+
 	def handle_read(self):
 		server = self.server
 		conn, addr = self.socket.accept()
@@ -289,7 +289,7 @@ class NetworkListener:
 			return
 		conn.setblocking(False)
 		h = server.RequestHandlerClass(server, conn, addr)
-	
+
 	def handle_error(self):
 		# Ignore errors... like socket closing on the queue
 		pass
@@ -299,7 +299,7 @@ class _Waker:
 		self.server = server
 		self.fd = fd
 		self.logger = logging.getLogger('Waker for %s' % (server.__class__.__name__,))
-	
+
 	def handle_read(self):
 		data = os.read(self.fd, 1)
 		if not data:
@@ -308,87 +308,87 @@ class _Waker:
 
 class AsyncSocketServer:
 	logger = logging.getLogger('SocketServer')
-	
+
 	waker = False
 	schMT = False
-	
+
 	def __init__(self, RequestHandlerClass):
 		if not hasattr(self, 'ServerName'):
 			self.ServerName = 'Eloipool'
-		
+
 		self.RequestHandlerClass = RequestHandlerClass
-		
+
 		self.running = False
 		self.keepgoing = True
 		self.rejecting = False
 		self.lastidle = 0
-		
+
 		self._poll = select.poll()
 		self._fd = {}
 		self.connections = {}
-		
+
 		self._sch = ScheduleDict()
 		self._schEH = {}
 		if self.schMT:
 			self._schLock = threading.Lock()
 		else:
 			self._schLock = WithNoop
-		
+
 		self.TrustedForwarders = ()
-		
+
 		if self.waker:
 			(r, w) = os.pipe()
 			o = _Waker(self, r)
 			self.register_socket(r, o)
 			self.waker = w
-	
+
 	def register_socket(self, fd, o, eventmask = EPOLL_READ):
 		self._poll.register(fd, eventmask)
 		self._fd[fd] = o
-	
+
 	def register_socket_m(self, fd, eventmask):
 		try:
 			self._poll.modify(fd, eventmask)
 		except IOError:
 			raise socket.error
-	
+
 	def unregister_socket(self, fd):
 		del self._fd[fd]
 		try:
 			self._poll.unregister(fd)
 		except IOError:
 			raise socket.error
-	
+
 	def schedule(self, task, startTime, errHandler=None):
 		with self._schLock:
 			self._sch[task] = startTime
 			if errHandler:
 				self._schEH[id(task)] = errHandler
 		return task
-	
+
 	def rmSchedule(self, task):
 		with self._schLock:
 			del self._sch[task]
 			k = id(task)
 			if k in self._schEH:
 				del self._schEH[k]
-	
+
 	def pre_schedule(self):
 		pass
-	
+
 	def wakeup(self):
 		if not self.waker:
 			raise NotImplementedError('Class `%s\' did not enable waker' % (self.__class__.__name__))
 		os.write(self.waker, b'\1')  # to break out of the poll
-	
+
 	def final_init(self):
 		pass
-	
+
 	def boot_all(self):
 		conns = tuple(self.connections.values())
 		for c in conns:
 			tryErr(lambda: c.boot())
-	
+
 	def serve_forever(self):
 		self.running = True
 		self.final_init()
@@ -426,7 +426,7 @@ class AsyncSocketServer:
 				timeout = 0
 			elif timeout < 0 or timeout > 1:
 				timeout = 1
-			
+
 			self.doing = 'poll'
 			try:
 				events = self._poll.poll()
