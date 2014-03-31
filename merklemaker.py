@@ -107,6 +107,7 @@ class merkleMaker(threading.Thread):
 		_URI2Access = {}
 		def URI2Access(uri):
 			if uri not in _URI2Access:
+			    self.logger.debug('URI2Access %s' % uri)
 				access = jsonrpc.ServiceProxy(uri)
 				access.OldGMP = False
 				_URI2Access[uri] = access
@@ -432,6 +433,10 @@ class merkleMaker(threading.Thread):
 			try:
 				propose = caccess.getblocktemplate(ProposeReq)
 			except (socket.error, ValueError) as e:
+				self.logger.error('Upstream \'%s\' errored on proposal from \'%s\': %s' % (TC['name'], TS['name'], e))
+				ProposalErrors[TC['name']] = e
+				continue
+			except jsonrpc.JSONRPCException as e:
 				self.logger.error('Upstream \'%s\' errored on proposal from \'%s\': %s' % (TC['name'], TS['name'], e))
 				ProposalErrors[TC['name']] = e
 				continue
