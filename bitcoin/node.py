@@ -41,12 +41,12 @@ class BitcoinLink(networkserver.SocketHandler):
 		dest = ka.pop('dest', None)
 		if dest:
 			# Initiate outbound connection
-			try:
-				if ':' not in dest[0]:
-					dest = ('::ffff:' + dest[0],) + tuple(x for x in dest[1:])
-			except:
-				pass
-			sock = socket.socket(socket.AF_INET6, socket.SOCK_STREAM)
+			#try:
+			#	if ':' not in dest[0]:
+			#		dest = ('::ffff:' + dest[0],) + tuple(x for x in dest[1:])
+			#except:
+			#	pass
+			sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 			sock.connect(dest)
 			ka['sock'] = sock
 			ka['addr'] = dest
