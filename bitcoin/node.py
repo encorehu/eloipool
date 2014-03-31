@@ -22,6 +22,7 @@ import logging
 import networkserver
 import re
 import socket
+import errno
 from struct import pack, unpack
 from time import time
 from util import dblsha, tryErr
