@@ -107,7 +107,7 @@ class merkleMaker(threading.Thread):
 		_URI2Access = {}
 		def URI2Access(uri):
 			if uri not in _URI2Access:
-			    self.logger.debug('URI2Access %s' % uri)
+				self.logger.debug('URI2Access %s' % uri)
 				access = jsonrpc.ServiceProxy(uri)
 				access.OldGMP = False
 				_URI2Access[uri] = access
