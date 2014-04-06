@@ -12,6 +12,13 @@
 
 ### Settings relating to server identity
 
+### refrences
+### 1. Avalon users: bitcoind + eloipool configuration
+###    https://bitcointalk.org/index.php?topic=158105.0
+###
+###
+
+
 # Name of the server
 ServerName = 'Private Eloipool'
 
@@ -92,11 +99,11 @@ TemplateChecks = (
 	{
 		'name': 'primary',
 		'uri': 'http://user:pass@localhost:8332',
-		
+
 		# If 'unanimous' is true, no template will be used if this node
 		# rejects it
 		'unanimous': False,
-		
+
 		# If check servers disagree on all templates, they will be scored and
 		# the highest score will be used; 'weight' can be used to control the
 		# scoring per-server
